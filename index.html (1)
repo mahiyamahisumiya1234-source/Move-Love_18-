@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Move Lover - Pro</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        :root { --tg-theme-bg: #0f0f0f; --tg-theme-text: #ffffff; --accent: #00acee; --card-bg: #181818; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--tg-theme-bg); color: var(--tg-theme-text); margin: 0; padding-bottom: 80px; overflow-x: hidden; }
+
+        /* লোডিং স্ক্রিন */
+        #loader {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            transition: opacity 0.5s ease;
+        }
+        .loader-spinner {
+            width: 50px; height: 50px;
+            border: 4px solid #1a1a1a;
+            border-top: 4px solid var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        .loader-text { color: var(--accent); font-size: 24px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; animation: pulse 1.5s infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        /* হেডার */
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: #1a1a1a; position: sticky; top: 0; z-index: 1000; border-bottom: 1px solid #333; }
+        .logo { font-size: 18px; font-weight: bold; color: var(--accent); cursor: pointer; text-transform: uppercase; }
+        .user-box { display: flex; align-items: center; gap: 8px; background: #262626; padding: 4px 10px; border-radius: 20px; border: 1px solid #444; }
+        .u-avatar { width: 28px; height: 28px; background: #444; border-radius: 50%; overflow: hidden; border: 1px solid var(--accent); }
+
+        /* মুভি কার্ড ও বাটন লেআউট (স্ক্রিনশট অনুযায়ী) */
+        .movie-card { background: var(--card-bg); margin-bottom: 20px; border-bottom: 1px solid #222; }
+        .thumb-container { position: relative; width: 100%; height: 210px; background: #000; }
+        .thumb-img { width: 100%; height: 100%; object-fit: cover; }
+        .lock-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; font-size: 50px; color: #ffd700; }
+        
+        .video-info { padding: 12px; }
+        .v-title { font-size: 16px; font-weight: bold; color: #fff; margin-bottom: 5px; }
+        .v-stats { font-size: 12px; color: #aaa; display: flex; gap: 15px; margin-bottom: 10px; }
+
+        .interaction-grid { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 15px; }
+        .top-btns { display: flex; gap: 8px; }
+        .btn-action { border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; color: white; }
+        
+        .btn-small { flex: 1; background: #262626; }
+        .btn-tg { flex: 1.5; background: #24A1DE; }
+        .btn-unlock { width: 100%; background: var(--accent); color: #000; font-weight: bold; padding: 12px; }
+        .btn-watch { width: 100%; background: #28a745; color: #fff; font-weight: bold; padding: 12px; }
+
+        /* অ্যাডমিন প্যানেল */
+        #adminPanel { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #111; z-index: 9999; padding: 20px; box-sizing: border-box; overflow-y: auto; }
+        .admin-card { background: #1a1a1a; border-radius: 12px; padding: 15px; margin-bottom: 15px; border: 1px solid #333; }
+        .admin-input { width: 100%; padding: 12px; margin-top: 8px; background: #000; border: 1px solid #444; color: #fff; border-radius: 6px; box-sizing: border-box; }
+        .manage-item { display: flex; justify-content: space-between; align-items: center; background: #222; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 3px solid var(--accent); }
+    </style>
+</head>
+<body>
+
+    <div id="loader">
+        <div class="loader-spinner"></div>
+        <div class="loader-text">MOVE LOVER</div>
+    </div>
+
+    <div class="header">
+        <div class="logo" onclick="tapAdmin()">MOVE LOVER</div>
+        <div class="user-box">
+            <span style="font-size: 12px;" id="userName">Guest</span>
+            <div class="u-avatar" id="userAvatar"><i class="fa-solid fa-user"></i></div>
+        </div>
+    </div>
+
+    <div id="movieFeed"></div>
+
+    <div id="adminPanel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="color:var(--accent);">Admin Dashboard</h2>
+            <button onclick="closeAdmin()" style="background:red; color:#fff; border:none; padding:5px 15px; border-radius:5px;">Close</button>
+        </div>
+        <div class="admin-card">
+            <p>Users: <span id="statUsers">0</span> | Videos: <span id="statVideos">0</span></p>
+            <input type="text" id="globalAdLink" class="admin-input" placeholder="Monetag Ad Link">
+            <input type="text" id="tgGroupLink" class="admin-input" placeholder="Telegram Group Link">
+        </div>
+        <div class="admin-card">
+            <h4>Post & Manage</h4>
+            <input type="text" id="mTitle" class="admin-input" placeholder="Title">
+            <input type="text" id="mThumb" class="admin-input" placeholder="Thumbnail URL">
+            <input type="text" id="mVideo" class="admin-input" placeholder="Video URL">
+            <button onclick="publishPost()" style="width:100%; padding:15px; background:var(--accent); border:none; border-radius:8px; font-weight:bold; margin-top:10px;">PUBLISH VIDEO</button>
+        </div>
+        <div class="admin-card">
+            <h4>Delete Videos</h4>
+            <div id="manageList"></div>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        // লোডার হ্যান্ডলার
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const loader = document.getElementById('loader');
+                loader.style.opacity = '0';
+                setTimeout(() => loader.style.display = 'none', 500);
+            }, 1500);
+        });
+
+        let movies = JSON.parse(localStorage.getItem('myMovies')) || [];
+        let adLink = localStorage.getItem('globalAdLink') || "https://monetag.com";
+        let tgLink = localStorage.getItem('tgGroupLink') || "https://t.me/";
+        let userStats = JSON.parse(localStorage.getItem('userStats')) || {};
+        let totalUsersCount = localStorage.getItem('totalUsersCount') || 105;
+
+        function setupUser() {
+            const user = tg.initDataUnsafe?.user;
+            if (user) {
+                document.getElementById('userName').innerText = user.first_name;
+                if (user.photo_url) document.getElementById('userAvatar').innerHTML = `<img src="${user.photo_url}" style="width:100%">`;
+            }
+        }
+
+        function renderAll() {
+            const feed = document.getElementById('movieFeed');
+            const manageList = document.getElementById('manageList');
+            feed.innerHTML = ''; manageList.innerHTML = '';
+            
+            movies.forEach((m, index) => {
+                if(!userStats[index]) userStats[index] = { clicks: 0, likes: 118, views: 778 };
+                const isUnlocked = userStats[index].clicks >= 3;
+
+                // ফিড রেন্ডার
+                feed.innerHTML += `
+                    <div class="movie-card">
+                        <div class="thumb-container">
+                            <img src="${m.thumb}" class="thumb-img" style="${isUnlocked ? '' : 'filter:blur(10px)'}">
+                            ${!isUnlocked ? '<div class="lock-overlay"><i class="fa-solid fa-lock"></i></div>' : ''}
+                        </div>
+                        <div class="video-info">
+                            <div class="v-title">${m.title}</div>
+                            <div class="v-stats">
+                                <span><i class="fa-solid fa-eye"></i> ${userStats[index].views} views</span>
+                                <span><i class="fa-solid fa-thumbs-up"></i> ${userStats[index].likes} likes</span>
+                            </div>
+                        </div>
+                        <div class="interaction-grid">
+                            <div class="top-btns">
+                                <button class="btn-action btn-small" onclick="addLike(${index})"><i class="fa-solid fa-thumbs-up"></i> Like</button>
+                                <button class="btn-action btn-tg" onclick="window.open('${tgLink}', '_blank')"><i class="fa-brands fa-telegram"></i> Group</button>
+                                <button class="btn-action btn-small" onclick="shareVideo('${m.title}')"><i class="fa-solid fa-share-nodes"></i> Share</button>
+                            </div>
+                            ${isUnlocked ? 
+                                `<button class="btn-action btn-watch" onclick="window.location.href='${m.video}'">▶ WATCH VIDEO</button>` : 
+                                `<button class="btn-action btn-unlock" onclick="handleUnlock(${index})">🔒 UNLOCK TO WATCH (${userStats[index].clicks}/3)</button>`
+                            }
+                        </div>
+                    </div>
+                `;
+                // ম্যানেজ লিস্ট রেন্ডার
+                manageList.innerHTML += `<div class="manage-item"><span>${m.title}</span><button onclick="deleteVideo(${index})" style="background:red; color:white; border:none; padding:5px 10px; border-radius:5px;">Delete</button></div>`;
+            });
+            document.getElementById('statUsers').innerText = totalUsersCount;
+            document.getElementById('statVideos').innerText = movies.length;
+            document.getElementById('globalAdLink').value = adLink;
+            document.getElementById('tgGroupLink').value = tgLink;
+        }
+
+        function handleUnlock(index) {
+            window.open(adLink, '_blank');
+            userStats[index].clicks += 1;
+            localStorage.setItem('userStats', JSON.stringify(userStats));
+            renderAll();
+        }
+
+        function deleteVideo(index) {
+            if(confirm("Delete this video?")) {
+                movies.splice(index, 1);
+                localStorage.setItem('myMovies', JSON.stringify(movies));
+                renderAll();
+            }
+        }
+
+        function addLike(index) {
+            userStats[index].likes += 1;
+            localStorage.setItem('userStats', JSON.stringify(userStats));
+            renderAll();
+        }
+
+        function shareVideo(title) {
+            if (navigator.share) navigator.share({ title: title, url: window.location.href });
+        }
+
+        let taps = 0;
+        function tapAdmin() {
+            taps++;
+            if(taps === 5) {
+                let p = prompt("Admin Password:");
+                if(p === "1234") document.getElementById('adminPanel').style.display = 'block';
+                taps = 0;
+            }
+        }
+        function closeAdmin() { document.getElementById('adminPanel').style.display = 'none'; }
+
+        function publishPost() {
+            const t = document.getElementById('mTitle').value;
+            const th = document.getElementById('mThumb').value;
+            const v = document.getElementById('mVideo').value;
+            adLink = document.getElementById('globalAdLink').value;
+            tgLink = document.getElementById('tgGroupLink').value;
+            localStorage.setItem('globalAdLink', adLink);
+            localStorage.setItem('tgGroupLink', tgLink);
+
+            if(t && th && v) {
+                movies.unshift({title:t, thumb:th, video:v});
+                localStorage.setItem('myMovies', JSON.stringify(movies));
+                renderAll();
+                closeAdmin();
+            }
+        }
+
+        setupUser();
+        renderAll();
+    </script>
+</body>
+</html>
